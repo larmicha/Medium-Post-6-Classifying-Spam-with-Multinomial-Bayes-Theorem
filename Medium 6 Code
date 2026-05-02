@@ -1,0 +1,76 @@
+# Set Up
+# Import libraries
+from google.colab import drive
+import os
+import json
+import pandas as pd
+import string
+import numpy as np
+import random
+import networkx as nx
+import matplotlib.pyplot as plt
+
+
+# Mount drive
+drive.mount('/content/drive', force_remount=True)
+
+# Set assignment folder path
+lab_folder = '/content/drive/MyDrive/Courses/INST414/Week 3'
+os.chdir(lab_folder)
+# Analysis
+# Load dataset
+df = pd.read_csv('spam.csv', encoding='latin-1')
+
+# Clean up columns and display dataset
+df = df[['v1', 'v2']]
+df.columns = ['label', 'text']
+
+display(df.head(10))
+df.info()
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+
+# Map labels to 0 and 1
+df['label_num'] = df['label'].map({'ham': 0, 'spam': 1})
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(df['text'], df['label_num'], test_size=0.2, random_state=42)
+
+# Vectorize the text using TF-IDF (Term Frequency-Inverse Document Frequency)
+vectorizer = TfidfVectorizer(stop_words='english')
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
+
+# Train the Multinomial Naive Bayes model
+model = MultinomialNB()
+model.fit(X_train_tfidf, y_train)
+# Make predictions and evaluate
+y_pred = model.predict(X_test_tfidf)
+acc = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+
+print(f"Accuracy: {acc:.4f}")
+print("Confusion Matrix:")
+print(conf_matrix)
+# Find the prediction errors: align predictions with the original text in the test set
+results_df = pd.DataFrame({
+    'text': X_test,
+    'actual': y_test,
+    'predicted': y_pred
+})
+
+# Filter where the prediction does not match the actual label
+errors_df = results_df[results_df['actual'] != results_df['predicted']].copy()
+errors_df['actual_label'] = errors_df['actual'].map({0: 'Ham (Legit)', 1: 'Spam'})
+errors_df['predicted_label'] = errors_df['predicted'].map({0: 'Ham (Legit)', 1: 'Spam'})
+
+# Grab 5 samples
+five_errors = errors_df.head(5)
+print("\n--- 5 Samples the Model Got Wrong ---")
+for index, row in five_errors.iterrows():
+    print(f"Text: {row['text']}")
+    print(f"Actual: {row['actual_label']} | Predicted: {row['predicted_label']}")
+    print("-" * 50)
